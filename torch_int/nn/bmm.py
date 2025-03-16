@@ -1,5 +1,5 @@
 import torch
-from .._CUDA import bmm_s8t_s8n_s8t, bmm_s8t_s8n_s32t, bmm_s8t_s8n_f32t
+# from .._CUDA import bmm_s8t_s8n_s8t, bmm_s8t_s8n_s32t, bmm_s8t_s8n_f32t
 
 
 class BMM_S8T_S8N_S8T(torch.nn.Module):
@@ -8,10 +8,27 @@ class BMM_S8T_S8N_S8T(torch.nn.Module):
         self.register_buffer('a', torch.tensor(alpha))
 
     @torch.no_grad()
-    def forward(self, a, b):
+    def forward(self, a: torch.Tensor, b: torch.Tensor):
         # a: [B, M, K] int8
         # b: [B, N, K] int8
         # return: [B, M, N] int8
+
+        # Python ver. of bmm.cu
+        if a.dtype != torch.int8 or b.dtype != torch.int8:
+            raise ValueError("Inputs must be int8 numpy arrays")
+
+        batch_size, m, k = a.shape
+
+        _, n, ldb = b.shape
+        if k != K2:
+            raise ValueError("Matrix shapes are incompatible for multiplication")
+
+        # Perform batched matrix multiplication
+        C = np.matmul(A.astype(np.int32), B.astype(np.int32))  # Convert to int32 for accumulation
+        C = (C * alpha).astype(np.int8)  # Apply scaling and cast back to int8
+
+        return C
+
         return bmm_s8t_s8n_s8t(a, b, self.a.item())
 
     @staticmethod
